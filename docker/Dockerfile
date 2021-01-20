@@ -19,7 +19,7 @@ RUN pip install --user --pre torch torchvision -f https://download.pytorch.org/w
 
 RUN pip install 'git+https://github.com/facebookresearch/fvcore'
 # install detectron2
-RUN git clone --branch v0.3.0 https://github.com/facebookresearch/detectron2 detectron2_repo
+RUN git clone --branch v0.3 https://github.com/facebookresearch/detectron2 detectron2_repo
 # set FORCE_CUDA because during `docker build` cuda is not accessible
 ENV FORCE_CUDA="1"
 # This will by default build detectron2 for all common cuda architectures and take a lot more time,
