@@ -1,6 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
-import importlib.util
 import os
 import sys
 import tempfile
@@ -13,6 +12,7 @@ from torch import nn
 # need some explicit imports due to https://github.com/pytorch/pytorch/issues/38964
 import detectron2  # noqa F401
 from detectron2.structures import Instances
+from detectron2.utils.env import _import_file
 
 _counter = 0
 
@@ -265,14 +265,9 @@ from detectron2.structures import Boxes, Instances
 
 
 def _import(path):
-    # https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-    spec = importlib.util.spec_from_file_location(
-        "{}{}".format(sys.modules[__name__].__name__, _counter), path
+    return _import_file(
+        "{}{}".format(sys.modules[__name__].__name__, _counter), path, make_importable=True
     )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module.__name__] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 # TODO: this is a private utility. Should be made more useful through a model export api.
@@ -335,3 +330,33 @@ def patch_nonscriptable_classes():
         return ret
 
     FPN.__prepare_scriptable__ = prepare_fpn
+
+    # Annotate some attributes to be constants for the purpose of scripting,
+    # even though they are not constants in eager mode.
+    from detectron2.modeling.roi_heads import StandardROIHeads
+
+    if hasattr(StandardROIHeads, "__annotations__"):
+        StandardROIHeads.__annotations__["mask_on"] = torch.jit.Final[bool]
+        StandardROIHeads.__annotations__["keypoint_on"] = torch.jit.Final[bool]
+
+
+# These patches are not supposed to have side-effects.
+patch_nonscriptable_classes()
+
+
+@contextmanager
+def freeze_training_mode(model):
+    """
+    A context manager that annotates the "training" attribute of every submodule
+    to constant, so that the training codepath in these modules can be
+    meta-compiled away. Upon exiting, the annotations are reverted.
+    """
+    classes = {type(x) for x in model.modules()}
+    # __constants__ is the old way to annotate constants and not compatible
+    # with __annotations__ .
+    classes = {x for x in classes if not hasattr(x, "__constants__")}
+    for cls in classes:
+        cls.__annotations__["training"] = torch.jit.Final[bool]
+    yield
+    for cls in classes:
+        cls.__annotations__["training"] = bool

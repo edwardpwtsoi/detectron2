@@ -145,6 +145,10 @@ class InstancesList(object):
 
 
 class Caffe2Compatible(object):
+    """
+    A model can inherit this class to indicate that it can be traced and deployed with caffe2.
+    """
+
     def _get_tensor_mode(self):
         return self._tensor_mode
 
@@ -338,6 +342,10 @@ class Caffe2ROIPooler(Caffe2Compatible, poolers.ROIPooler):
             roi_feat_fpn_list.append(roi_feat_fpn)
 
         roi_feat_shuffled = cat(roi_feat_fpn_list, dim=0)
+        assert roi_feat_shuffled.numel() > 0 and rois_idx_restore_int32.numel() > 0, (
+            "Caffe2 export requires tracing with a model checkpoint + input that can produce valid"
+            " detections. But no detections were obtained with the given checkpoint and input!"
+        )
         roi_feat = torch.ops._caffe2.BatchPermutation(roi_feat_shuffled, rois_idx_restore_int32)
         return roi_feat
 

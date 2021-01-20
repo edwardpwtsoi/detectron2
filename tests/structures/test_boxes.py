@@ -7,6 +7,7 @@ import torch
 
 from detectron2.structures import Boxes, BoxMode, pairwise_ioa, pairwise_iou
 from detectron2.utils.env import TORCH_VERSION
+from detectron2.utils.testing import reload_script_model
 
 
 class TestBoxMode(unittest.TestCase):
@@ -192,8 +193,7 @@ class TestBoxes(unittest.TestCase):
         x = Boxes(torch.rand(3, 4))
         self.assertEqual(x.to(device="cpu").tensor.device.type, "cpu")
 
-    # require https://github.com/pytorch/pytorch/pull/39821
-    @unittest.skipIf(TORCH_VERSION < (1, 6), "Insufficient pytorch version")
+    @unittest.skipIf(TORCH_VERSION < (1, 8), "Insufficient pytorch version")
     def test_scriptability(self):
         def func(x):
             boxes = Boxes(x)
@@ -201,6 +201,7 @@ class TestBoxes(unittest.TestCase):
             return boxes.area(), test
 
         f = torch.jit.script(func)
+        f = reload_script_model(f)
         f(torch.rand((3, 4)))
 
         data = torch.rand((3, 4))
