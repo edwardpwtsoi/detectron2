@@ -12,7 +12,7 @@ from torch.utils.cpp_extension import CUDA_HOME, CppExtension, CUDAExtension
 from torch.utils.hipify import hipify_python
 
 torch_ver = [int(x) for x in torch.__version__.split(".")[:2]]
-assert torch_ver >= [1, 5], "Requires PyTorch >= 1.5"
+assert torch_ver >= [1, 6], "Requires PyTorch >= 1.6"
 
 
 def get_version():
@@ -211,11 +211,13 @@ setup(
         "matplotlib",
         "tqdm>4.29.0",
         "tensorboard",
-        "fvcore>=0.1.2",
+        "fvcore>=0.1.3,<0.1.4",  # required like this to make it pip installable
         "iopath>=0.1.2",
         "pycocotools>=2.0.2",  # corresponds to https://github.com/ppwwyyxx/cocoapi
         "future",  # used by caffe2
         "pydot",  # used to save caffe2 SVGs
+        "dataclasses; python_version<'3.7'",
+        "omegaconf>=2",
     ],
     extras_require={
         "all": [

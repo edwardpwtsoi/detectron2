@@ -92,7 +92,7 @@ def collect_env_info():
                 cxx = cxx.decode("utf-8").strip().split("\n")[0]
             except subprocess.SubprocessError:
                 cxx = "Not found"
-            data.append(("Compiler", cxx))
+            data.append(("Compiler ($CXX)", cxx))
 
             if has_cuda and CUDA_HOME is not None:
                 try:
@@ -187,5 +187,8 @@ if __name__ == "__main__":
             try:
                 x = torch.tensor([1, 2.0], dtype=torch.float32)
                 x = x.to(device)
-            except Exception:
-                print(f"Unable to copy tensor to device={device}")
+            except Exception as e:
+                print(
+                    f"Unable to copy tensor to device={device}: {e}. "
+                    "Your CUDA environment is broken."
+                )
