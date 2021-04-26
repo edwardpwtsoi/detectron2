@@ -77,6 +77,8 @@ def collect_env_info():
         )
     except ImportError:
         data.append(("detectron2", "failed to import"))
+    except AttributeError:
+        data.append(("detectron2", "imported a wrong installation"))
 
     try:
         import detectron2._C as _C
@@ -102,11 +104,20 @@ def collect_env_info():
                 except subprocess.SubprocessError:
                     nvcc = "Not found"
                 data.append(("CUDA compiler", nvcc))
+        if has_cuda and sys.platform != "win32":
+            try:
+                so_file = importlib.util.find_spec("detectron2._C").origin
+            except ImportError:
+                pass
+            else:
+                data.append(
+                    ("detectron2 arch flags", detect_compute_compatibility(CUDA_HOME, so_file))
+                )
     else:
         # print compilers that are used to build extension
         data.append(("Compiler", _C.get_compiler_version()))
         data.append(("CUDA compiler", _C.get_cuda_version()))  # cuda or hip
-        if has_cuda:
+        if has_cuda and getattr(_C, "has_cuda", lambda: True)():
             data.append(
                 ("detectron2 arch flags", detect_compute_compatibility(CUDA_HOME, _C.__file__))
             )
@@ -162,6 +173,13 @@ def collect_env_info():
         pass
 
     try:
+        import iopath
+
+        data.append(("iopath", iopath.__version__))
+    except (ImportError, AttributeError):
+        pass
+
+    try:
         import cv2
 
         data.append(("cv2", cv2.__version__))
@@ -174,13 +192,12 @@ def collect_env_info():
 
 if __name__ == "__main__":
     try:
-        import detectron2  # noqa
+        from detectron2.utils.collect_env import collect_env_info as f
+
+        print(f())
     except ImportError:
         print(collect_env_info())
-    else:
-        from detectron2.utils.collect_env import collect_env_info
 
-        print(collect_env_info())
     if torch.cuda.is_available():
         for k in range(torch.cuda.device_count()):
             device = f"cuda:{k}"

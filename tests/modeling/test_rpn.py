@@ -5,7 +5,7 @@ import unittest
 import torch
 
 from detectron2.config import get_cfg
-from detectron2.export.torchscript import export_torchscript_with_instances
+from detectron2.export import scripting_with_instances
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.backbone import build_backbone
 from detectron2.modeling.proposal_generator import RPN, build_proposal_generator
@@ -18,11 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class RPNTest(unittest.TestCase):
-    def test_rpn(self):
-        torch.manual_seed(121)
-        cfg = get_cfg()
-        backbone = build_backbone(cfg)
-        proposal_generator = RPN(cfg, backbone.output_shape())
+    def get_gt_and_features(self):
         num_images = 2
         images_tensor = torch.rand(num_images, 20, 30)
         image_sizes = [(10, 10), (20, 30)]
@@ -33,6 +29,14 @@ class RPNTest(unittest.TestCase):
         gt_boxes = torch.tensor([[1, 1, 3, 3], [2, 2, 6, 6]], dtype=torch.float32)
         gt_instances = Instances(image_shape)
         gt_instances.gt_boxes = Boxes(gt_boxes)
+        return (gt_instances, features, images, image_sizes)
+
+    def test_rpn(self):
+        torch.manual_seed(121)
+        cfg = get_cfg()
+        backbone = build_backbone(cfg)
+        proposal_generator = RPN(cfg, backbone.output_shape())
+        (gt_instances, features, images, image_sizes) = self.get_gt_and_features()
         with EventStorage():  # capture events in a new storage to discard them
             proposals, proposal_losses = proposal_generator(
                 images, features, [gt_instances[0], gt_instances[1]]
@@ -61,6 +65,39 @@ class RPNTest(unittest.TestCase):
             torch.allclose(proposals[0].objectness_logits, expected_objectness_logit, atol=1e-4)
         )
 
+    def verify_rpn(self, conv_dims, expected_conv_dims):
+        torch.manual_seed(121)
+        cfg = get_cfg()
+        cfg.MODEL.RPN.CONV_DIMS = conv_dims
+        backbone = build_backbone(cfg)
+        proposal_generator = RPN(cfg, backbone.output_shape())
+        for k, conv in enumerate(proposal_generator.rpn_head.conv):
+            self.assertEqual(expected_conv_dims[k], conv.out_channels)
+        return proposal_generator
+
+    def test_rpn_larger_num_convs(self):
+        conv_dims = [64, 64, 64, 64, 64]
+        proposal_generator = self.verify_rpn(conv_dims, conv_dims)
+        (gt_instances, features, images, image_sizes) = self.get_gt_and_features()
+        with EventStorage():  # capture events in a new storage to discard them
+            proposals, proposal_losses = proposal_generator(
+                images, features, [gt_instances[0], gt_instances[1]]
+            )
+        expected_losses = {
+            "loss_rpn_cls": torch.tensor(0.08122821152),
+            "loss_rpn_loc": torch.tensor(0.10064548254),
+        }
+        for name in expected_losses.keys():
+            err_msg = "proposal_losses[{}] = {}, expected losses = {}".format(
+                name, proposal_losses[name], expected_losses[name]
+            )
+            self.assertTrue(torch.allclose(proposal_losses[name], expected_losses[name]), err_msg)
+
+    def test_rpn_conv_dims_not_set(self):
+        conv_dims = [-1, -1, -1]
+        expected_conv_dims = [1024, 1024, 1024]
+        self.verify_rpn(conv_dims, expected_conv_dims)
+
     # https://github.com/pytorch/pytorch/issues/46964
     @unittest.skipIf(
         TORCH_VERSION < (1, 7) or sys.version_info.minor <= 6, "Insufficient pytorch version"
@@ -75,7 +112,7 @@ class RPNTest(unittest.TestCase):
         features = {"res4": torch.rand(num_images, 1024, 1, 2)}
 
         fields = {"proposal_boxes": Boxes, "objectness_logits": torch.Tensor}
-        proposal_generator_ts = export_torchscript_with_instances(proposal_generator, fields)
+        proposal_generator_ts = scripting_with_instances(proposal_generator, fields)
 
         proposals, _ = proposal_generator(images, features)
         proposals_ts, _ = proposal_generator_ts(images, features)

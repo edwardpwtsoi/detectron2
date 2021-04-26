@@ -3,7 +3,7 @@
 ## <a name="Overview"></a> Overview
 
 <div align="center">
-  <img src="https://dl.fbaipublicfiles.com/densepose/web/densepose_cse_teaser.gif" width="700px" />
+  <img src="https://dl.fbaipublicfiles.com/densepose/web/densepose_cse_teaser.png" width="700px" />
 </div>
 
 The pipeline uses [Faster R-CNN](https://arxiv.org/abs/1506.01497)
@@ -19,6 +19,12 @@ surface embedding.
   <img src="https://dl.fbaipublicfiles.com/densepose/web/densepose_pipeline_cse.png" width="700px" />
 </div>
 <p class="image-caption"><b>Figure 1.</b> DensePose continuous surface embeddings architecture based on Faster R-CNN with Feature Pyramid Network (FPN).</p>
+
+### Datasets
+
+For more details on datasets used for training and validation of
+continuous surface embeddings models,
+please refer to the [DensePose Datasets](DENSEPOSE_DATASETS.md) page.
 
 ## <a name="ModelZoo"></a> Model Zoo and Baselines
 

@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
 import dataclasses
 import logging
 from collections import abc
@@ -38,14 +39,18 @@ def instantiate(cfg):
     "_target_" and arguments.
 
     Args:
-        cfg:
+        cfg: a dict-like object with "_target_" that defines the caller, and
+            other keys that define the arguments
 
     Returns:
         object instantiated by cfg
     """
     from omegaconf import ListConfig
 
-    if isinstance(cfg, (list, tuple, ListConfig)):
+    if isinstance(cfg, ListConfig):
+        lst = [instantiate(x) for x in cfg]
+        return ListConfig(lst, flags={"allow_objects": True})
+    if isinstance(cfg, list):
         # Specialize for list, because many classes take
         # list[objects] as arguments, such as ResNet, DatasetMapper
         return [instantiate(x) for x in cfg]
